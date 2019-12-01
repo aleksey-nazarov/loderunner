@@ -24,7 +24,7 @@ def displayPath(gcb, hPath):
 
 decisionMaker = Decider()
 
-with open('last_gcb_1', 'rb') as f:
+with open('last_gcb_9', 'rb') as f:
     gcb = pickle.load(f)
 
 

@@ -75,7 +75,8 @@ realFreeTiles = gold + \
                   Element('HERO_DRILL_LEFT'),
                   Element('HERO_DRILL_RIGHT'),
                   Element('HERO_SHADOW_DRILL_LEFT'),
-                  Element('HERO_SHADOW_DRILL_RIGHT') ]
+                  Element('HERO_SHADOW_DRILL_RIGHT'),
+                  Element('DRILL_PIT') ] # POSSIBLE UNSAFE
 
 possibleFreeTiles = realFreeTiles + \
                     [ Element('NONE'),
@@ -87,7 +88,7 @@ possibleFreeTiles = realFreeTiles + \
                       Element('OTHER_HERO_SHADOW_RIGHT') ]
 
 PATH_SEARCH_TRIES_BEFORE_SUICIDE = 15
-MAX_PATH_SEARCH_TIME = 0.95 
+MAX_PATH_SEARCH_TIME = 0.9
 
 class Decider:
     def __init__(self):
@@ -142,6 +143,7 @@ class Decider:
                 #print(hPath)
                 runTime = time.time() - startTime
                 if ( runTime > MAX_PATH_SEARCH_TIME ):
+                    print('NOT found, depth {}'.format(counter))
                     return self.getApproxPath(hPaths)
                 lastPt = hPath[-1]
                 reachablePts = self.reachablePointsFrom(*lastPt)
@@ -157,6 +159,7 @@ class Decider:
                     newHPaths.append( hPath + [rpt] )
                     rTile = self._gcb.get_at(*rpt)
                     if ( rTile in gold ):
+                        print('found, depth {}'.format(counter))
                         return hPath + [rpt]
             if ( counter % 10 == 0 ):
                 pass
@@ -173,15 +176,24 @@ class Decider:
     def getApproxPath(self, hPaths):
         # TODO упрощенно в центр
         #print(hPaths)
-        centerX = 30
-        centerY = 30
+        nearestGoldPos = self.getNearestGold()
+        if ( nearestGoldPos != None  ):
+            tgtX = nearestGoldPos[0]
+            tgtY = nearestGoldPos[1] 
+            print('going to nearest gold at {}, {}'.format(tgtX, tgtY))
+        else:
+            side = sqrt(len(self._gcb._string))
+            coord = int(side / 2)
+            tgtX = coord
+            tgtY = coord
+            print('going to center at {}, {}'.format(tgtX, tgtY))
         lastPts = []
         for hPath in hPaths:
             try:
                 lastPt = hPath[-1]
                 x = lastPt[0]
                 y = lastPt [1]
-                dist = sqrt( (centerX - x)**2 + (centerY - y)**2 )
+                dist = sqrt( (tgtX - x)**2 + (tgtY - y)**2 )
                 lastPts.append( (lastPt, dist, hPath) )
             except IndexError:
                 continue
@@ -190,6 +202,25 @@ class Decider:
             return lastPts[0][2]
         except IndexError:
             return None
+
+
+    def getNearestGold(self):
+        goldPoss = self._gcb.get_gold_positions()
+        myPos = self._gcb.get_my_position()
+        myX = myPos.get_x()
+        myY = myPos.get_y()
+        ratedGoldPoss = []
+        for goldPos in goldPoss:
+            gX = goldPos.get_x()
+            gY = goldPos.get_y()
+            dist = sqrt( (gX - myX)**2 + (gY - myY)**2 )
+            ratedGoldPoss.append( (goldPos, dist) )
+        ratedGoldPoss.sort(key = lambda x: x[1])
+        try:
+            return ratedGoldPoss[0][0].get_x(), ratedGoldPoss[0][0].get_y()
+        except IndexError:
+            return None
+            
 
 
     def reachablePointsFrom(self, x, y, possible = False):
