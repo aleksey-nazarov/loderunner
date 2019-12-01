@@ -16,6 +16,13 @@ goldValue = { 'YELLOW_GOLD' : 2,
               'GREEN_GOLD' : 7, 
               'RED_GOLD' : 10 }
 # Element(''),
+def getGoldValue(goldElement):
+    for goldType in goldValue.keys():
+        val = goldValue[goldType]
+        elem = Element(goldType)
+        if ( elem == goldElement ):
+            return val
+    return None
 
 gold = [ Element(g) for g in goldValue.keys() ]
 
@@ -88,7 +95,7 @@ possibleFreeTiles = realFreeTiles + \
                       Element('OTHER_HERO_SHADOW_RIGHT') ]
 
 PATH_SEARCH_TRIES_BEFORE_SUICIDE = 15
-MAX_PATH_SEARCH_TIME = 0.9
+MAX_PATH_SEARCH_TIME = 0.85
 
 class Decider:
     def __init__(self):
@@ -139,12 +146,17 @@ class Decider:
         while(True):
             newHPaths = []
             visited = []
+            ratedPaths = []
             for hPath in hPaths:
                 #print(hPath)
                 runTime = time.time() - startTime
                 if ( runTime > MAX_PATH_SEARCH_TIME ):
-                    print('NOT found, depth {}'.format(counter))
-                    return self.getApproxPath(hPaths)
+                    if ( len(ratedPaths) == 0 ):
+                        print('NOT found, depth {}'.format(counter))
+                        return self.getApproxPath(hPaths)
+                    ratedPaths.sort()
+                    print('found, depth {}'.format(counter))
+                    return ratedPaths[0][0]
                 lastPt = hPath[-1]
                 reachablePts = self.reachablePointsFrom(*lastPt)
                 #if ( (16, 39) in hPath ):
@@ -159,8 +171,11 @@ class Decider:
                     newHPaths.append( hPath + [rpt] )
                     rTile = self._gcb.get_at(*rpt)
                     if ( rTile in gold ):
-                        print('found, depth {}'.format(counter))
-                        return hPath + [rpt]
+                        resPath = hPath + [rpt]
+                        rate = getGoldValue(rTile) / len(resPath)
+                        ratedPaths.append( (resPath, rate) )
+                        #print('found, depth {}'.format(counter))
+                        #return hPath + [rpt]
             if ( counter % 10 == 0 ):
                 pass
                 #print(counter)
