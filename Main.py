@@ -15,7 +15,6 @@ logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
 decisionMaker = Decider()
 manualControl = ManualControl() # REMOVE
 
-
 def turn(gcb: Board):
     #action_id = random.randint(0, len(LoderunnerAction)-1)
     #return list(LoderunnerAction)[action_id]

@@ -1,9 +1,15 @@
+import time
+import atexit
+import os.path
+import pickle
+
 from loderunnerclient.internals.actions import LoderunnerAction
 from loderunnerclient.internals.board import Board
 from loderunnerclient.internals.element import Element
 
+# не имеет особого смысла, т.к. ценность золота меняется при последовательном подборе
 goldValue = { 'YELLOW_GOLD' : 2,
-              'GREEN_GOLD' : 5,
+              'GREEN_GOLD' : 7, 
               'RED_GOLD' : 10 }
 # Element(''),
 
@@ -43,7 +49,9 @@ possibleDestructibleGround = realDestructibleGround + \
 
 realGround = realDestructibleGround + \
              [ Element('UNDESTROYABLE_WALL'),
-               Element('ENEMY_PIT') ]  # TODO возможно
+               Element('ENEMY_PIT'), # TODO возможно
+               Element('HERO_PIPE_LEFT'),
+               Element('HERO_PIPE_RIGHT') ]  
 
 possibleGround = realGround + \
                  possibleDestructibleGround
@@ -72,12 +80,14 @@ possibleFreeTiles = realFreeTiles + \
                       Element('OTHER_HERO_SHADOW_LEFT'),
                       Element('OTHER_HERO_SHADOW_RIGHT') ]
 
-PATH_SEARCH_TRIES_BEFORE_SUICIDE = 15                   
+PATH_SEARCH_TRIES_BEFORE_SUICIDE = 15
+MAX_PATH_SEARCH_TIME = 600.0# 2.0
 
 class Decider:
     def __init__(self):
         self._gcb = None
         self._pathNotFoundCount = 0
+        atexit.register(self.dumpGcb)
         pass
 
 
@@ -118,13 +128,18 @@ class Decider:
         """
         hPaths = [ [ (x, y) ] ] # hPath = hero path, чтоб случайно не попутать с модулем path
         counter = 0
+        startTime = time.time()
         while(True):
+            runTime = time.time() - startTime
+            if ( runTime > MAX_PATH_SEARCH_TIME ):
+                return None
             newHPaths = []
             for hPath in hPaths:
                 lastPt = hPath[-1]
                 reachablePts = self.reachablePointsFrom(*lastPt)
-                if ( (12, 24) in hPath ):
-                    print('hPath', hPath)
+                #if ( (16, 39) in hPath ):
+                    #print('hPath', hPath)
+                #print('hPath', hPath)
                 #print('lastPt', lastPt)
                 #print('rpts', reachablePts)
                 for rpt in reachablePts:
@@ -168,12 +183,12 @@ class Decider:
         toTile = self._gcb.get_at(toX, toY)
         if ( possible == True ):
             ladders = possibleLadders
-            #pipes = possiblePipes
+            pipes = possiblePipes
             freeTiles = possibleFreeTiles
             destructibleGround = possibleDestructibleGround
         else:
             ladders = realLadders
-            #pipes = realPipes
+            pipes = realPipes
             freeTiles = realFreeTiles
             destructibleGround = realDestructibleGround
         #laddersNPipes = ladders + pipes
@@ -182,7 +197,8 @@ class Decider:
              fromY - toY == 1 and 
              self._gcb.get_at(fromX, fromY) in ladders and # 'from' is ladder
              ( toTile in ladders or
-               toTile in freeTiles ) ):
+               toTile in freeTiles or
+               toTile in pipes) ):
             return [ LoderunnerAction.GO_UP ]
 
         # вбок
@@ -206,10 +222,11 @@ class Decider:
                tile in possibleDestructibleGround ) and
              toTile in freeTiles ):
             if ( self.canHoldOn(fromX, fromY) ):
-                return LoderunnerAction.GO_DOWN
+                return [ LoderunnerAction.GO_DOWN ]
             if ( tile in freeTiles or
                  tile in possibleDestructibleGround ):
-                return LoderunnerAction.DO_NOTHING # falling
+                #return [ LoderunnerAction.DO_NOTHING ] # falling
+                return [ LoderunnerAction.GO_DOWN ]
             
         # вправо-вниз и влево-вниз, в случае успеха возвращаются два действия, одно из которых - сверление
         deltaX = toX - fromX
@@ -255,6 +272,15 @@ class Decider:
             return True
 
         return False
+
+
+    def dumpGcb(self):
+        fileName = 'last_gcb'
+        fileNo = 1
+        while( os.path.isfile(fileName + '_' + str(fileNo)) == True ):
+            fileNo += 1
+        with open(fileName + '_' + str(fileNo), 'wb') as f:
+            pickle.dump(self._gcb, f)
 
 
 

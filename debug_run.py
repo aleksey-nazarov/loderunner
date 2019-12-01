@@ -24,16 +24,18 @@ def displayPath(gcb, hPath):
 
 decisionMaker = Decider()
 
-with open('gcb1', 'rb') as f:
+with open('last_gcb_8', 'rb') as f:
     gcb = pickle.load(f)
 
 # убираем золото, которое алгоритм уже нашел
-setChar(12, 24, ' ', gcb)
-setChar(6, 24, ' ', gcb)
-setChar(24, 22, ' ', gcb)
-setChar(28, 23, ' ', gcb)
+##setChar(12, 24, ' ', gcb)
+##setChar(6, 24, ' ', gcb)
+##setChar(24, 22, ' ', gcb)
+##setChar(28, 23, ' ', gcb)
 
 gcb.print_board()
+#print(gcb.get_my_position()) 6,38
+#time.sleep(8)
 
 #displayPath(gcb, [])
 
