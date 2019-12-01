@@ -16,15 +16,8 @@ goldValue = { 'YELLOW_GOLD' : 2,
               'GREEN_GOLD' : 7, 
               'RED_GOLD' : 10 }
 # Element(''),
-def getGoldValue(goldElement):
-    for goldType in goldValue.keys():
-        val = goldValue[goldType]
-        elem = Element(goldType)
-        if ( elem == goldElement ):
-            return val
-    return None
 
-gold = [ Element(g) for g in goldValue.keys() ]
+gold = [ Element(g) for g in goldValue.keys() ] + [ Element('THE_SHADOW_PILL') ]
 
 realLadders = [ Element('LADDER'),
                 Element('HERO_LADDER'),
@@ -83,7 +76,28 @@ realFreeTiles = gold + \
                   Element('HERO_DRILL_RIGHT'),
                   Element('HERO_SHADOW_DRILL_LEFT'),
                   Element('HERO_SHADOW_DRILL_RIGHT'),
-                  Element('DRILL_PIT') ] # POSSIBLE UNSAFE
+                  Element('DRILL_PIT'),
+                  Element('PORTAL') ] # POSSIBLE UNSAFE
+
+shadowHeroTiles = [ Element('HERO_SHADOW_LEFT'),
+                    Element('HERO_SHADOW_RIGHT'),
+                    Element('HERO_SHADOW_FALL_LEFT'),
+                    Element('HERO_SHADOW_FALL_RIGHT'),
+                    Element('HERO_SHADOW_DRILL_LEFT'),
+                    Element('HERO_SHADOW_DRILL_RIGHT') ]
+
+enemies = [ Element('ENEMY_LADDER'),
+            Element('ENEMY_LEFT'),
+            Element('ENEMY_RIGHT'),
+            Element('ENEMY_PIPE_LEFT'),
+            Element('ENEMY_PIPE_RIGHT') ]
+
+otherHeroes = [ Element('OTHER_HERO_DIE'),
+                Element('OTHER_HERO_LEFT'),
+                Element('OTHER_HERO_RIGHT'),
+                Element('OTHER_HERO_LADDER'),
+                Element('OTHER_HERO_PIPE_LEFT'),
+                Element('OTHER_HERO_PIPE_RIGHT') ]
 
 possibleFreeTiles = realFreeTiles + \
                     [ Element('NONE'),
@@ -95,7 +109,7 @@ possibleFreeTiles = realFreeTiles + \
                       Element('OTHER_HERO_SHADOW_RIGHT') ]
 
 PATH_SEARCH_TRIES_BEFORE_SUICIDE = 15
-MAX_PATH_SEARCH_TIME = 0.85
+MAX_PATH_SEARCH_TIME = 0.9
 
 class Decider:
     def __init__(self):
@@ -131,7 +145,8 @@ class Decider:
             print('PATH SEARCHING ERROR')
             self._pathNotFoundCount += 1
             if ( self._pathNotFoundCount > PATH_SEARCH_TRIES_BEFORE_SUICIDE ):
-                return LoderunnerAction.SUICIDE
+                #return LoderunnerAction.SUICIDE
+                pass
             return LoderunnerAction.DO_NOTHING
 
 
@@ -141,22 +156,17 @@ class Decider:
         Возвращает только один путь!
         """
         hPaths = [ [ (x, y) ] ] # hPath = hero path, чтоб случайно не попутать с модулем path
+        visited = [ (x, y) ]
         counter = 0
         startTime = time.time()
         while(True):
             newHPaths = []
-            visited = []
-            ratedPaths = []
             for hPath in hPaths:
                 #print(hPath)
                 runTime = time.time() - startTime
                 if ( runTime > MAX_PATH_SEARCH_TIME ):
-                    if ( len(ratedPaths) == 0 ):
-                        print('NOT found, depth {}'.format(counter))
-                        return self.getApproxPath(hPaths)
-                    ratedPaths.sort()
-                    print('found, depth {}'.format(counter))
-                    return ratedPaths[0][0]
+                    print('NOT found, depth {}, time {}'.format(counter, runTime))
+                    return self.getApproxPath(hPaths)
                 lastPt = hPath[-1]
                 reachablePts = self.reachablePointsFrom(*lastPt)
                 #if ( (16, 39) in hPath ):
@@ -166,16 +176,15 @@ class Decider:
                 #print('rpts', reachablePts)
                 for rpt in reachablePts:
                     if ( rpt in visited ):
+                        #print(rpt,' visited', visited)
                         continue # ни шагу назат!
+                    #print(reachablePts)
                     visited.append(rpt)
                     newHPaths.append( hPath + [rpt] )
                     rTile = self._gcb.get_at(*rpt)
                     if ( rTile in gold ):
-                        resPath = hPath + [rpt]
-                        rate = getGoldValue(rTile) / len(resPath)
-                        ratedPaths.append( (resPath, rate) )
-                        #print('found, depth {}'.format(counter))
-                        #return hPath + [rpt]
+                        print('found, depth {}'.format(counter))
+                        return hPath + [rpt]
             if ( counter % 10 == 0 ):
                 pass
                 #print(counter)
@@ -255,6 +264,13 @@ class Decider:
         return availablePts
 
 
+    def getHeroTile(self):
+        hPos = self._gcb.get_my_position()
+        hX = hPos.get_x()
+        hY = hPos.get_y()
+        return self._gcb.get_at(hX, hY)
+
+
     def actionToMove(self, fromX, fromY, toX, toY, possible = False):
         # вверх
         toTile = self._gcb.get_at(toX, toY)
@@ -267,6 +283,8 @@ class Decider:
             ladders = realLadders
             pipes = realPipes
             freeTiles = realFreeTiles
+            if ( self.getHeroTile() in shadowHeroTiles ):
+                freeTiles += enemies + otherHeroes
             destructibleGround = realDestructibleGround
         #laddersNPipes = ladders + pipes
             
@@ -297,7 +315,10 @@ class Decider:
              ( self.canHoldOn(fromX, fromY) or # hero can be on this tile
                tile in freeTiles or
                tile in possibleDestructibleGround ) and
-             toTile in freeTiles ):
+             ( toTile in freeTiles or
+               toTile in ladders or
+               toTile in pipes ) ):
+            #print(toTile)
             if ( self.canHoldOn(fromX, fromY) ):
                 return [ LoderunnerAction.GO_DOWN ]
             if ( tile in freeTiles or
