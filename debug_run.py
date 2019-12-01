@@ -24,8 +24,9 @@ def displayPath(gcb, hPath):
 
 decisionMaker = Decider()
 
-with open('last_gcb_8', 'rb') as f:
+with open('last_gcb_1', 'rb') as f:
     gcb = pickle.load(f)
+
 
 # убираем золото, которое алгоритм уже нашел
 ##setChar(12, 24, ' ', gcb)
@@ -42,6 +43,10 @@ gcb.print_board()
 hPathList = []
 tStart = time.time()
 d = decisionMaker.getDecision(gcb, hPathList)
+
+setChar(55, 43, '█', gcb)
+gcb.print_board()
+
 tRun = time.time() - tStart
 
 displayPath(gcb, hPathList[0])

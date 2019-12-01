@@ -1,11 +1,15 @@
-import time
+﻿import time
 import atexit
 import os.path
 import pickle
+from math import sqrt
 
 from loderunnerclient.internals.actions import LoderunnerAction
 from loderunnerclient.internals.board import Board
 from loderunnerclient.internals.element import Element
+
+# 1. сохранение и продолжение поиска
+# 2. приоритетные действия - убегание от роботов (даже если не успевает завершить поиск)
 
 # не имеет особого смысла, т.к. ценность золота меняется при последовательном подборе
 goldValue = { 'YELLOW_GOLD' : 2,
@@ -51,7 +55,9 @@ realGround = realDestructibleGround + \
              [ Element('UNDESTROYABLE_WALL'),
                Element('ENEMY_PIT'), # TODO возможно
                Element('HERO_PIPE_LEFT'),
-               Element('HERO_PIPE_RIGHT') ]  
+               Element('HERO_PIPE_RIGHT'),
+               Element('OTHER_HERO_LEFT'),
+               Element('OTHER_HERO_RIGHT') ]  
 
 possibleGround = realGround + \
                  possibleDestructibleGround
@@ -81,7 +87,7 @@ possibleFreeTiles = realFreeTiles + \
                       Element('OTHER_HERO_SHADOW_RIGHT') ]
 
 PATH_SEARCH_TRIES_BEFORE_SUICIDE = 15
-MAX_PATH_SEARCH_TIME = 600.0# 2.0
+MAX_PATH_SEARCH_TIME = 0.95 
 
 class Decider:
     def __init__(self):
@@ -130,11 +136,13 @@ class Decider:
         counter = 0
         startTime = time.time()
         while(True):
-            runTime = time.time() - startTime
-            if ( runTime > MAX_PATH_SEARCH_TIME ):
-                return None
             newHPaths = []
+            visited = []
             for hPath in hPaths:
+                #print(hPath)
+                runTime = time.time() - startTime
+                if ( runTime > MAX_PATH_SEARCH_TIME ):
+                    return self.getApproxPath(hPaths)
                 lastPt = hPath[-1]
                 reachablePts = self.reachablePointsFrom(*lastPt)
                 #if ( (16, 39) in hPath ):
@@ -143,14 +151,16 @@ class Decider:
                 #print('lastPt', lastPt)
                 #print('rpts', reachablePts)
                 for rpt in reachablePts:
-                    if ( rpt in hPath ):
+                    if ( rpt in visited ):
                         continue # ни шагу назат!
+                    visited.append(rpt)
                     newHPaths.append( hPath + [rpt] )
                     rTile = self._gcb.get_at(*rpt)
                     if ( rTile in gold ):
                         return hPath + [rpt]
             if ( counter % 10 == 0 ):
-                print(counter)
+                pass
+                #print(counter)
                 #print(hPaths)
             #print(counter)
             counter += 1
@@ -159,6 +169,27 @@ class Decider:
 
             if ( newHPaths == [] ):
                 return None
+
+    def getApproxPath(self, hPaths):
+        # TODO упрощенно в центр
+        #print(hPaths)
+        centerX = 30
+        centerY = 30
+        lastPts = []
+        for hPath in hPaths:
+            try:
+                lastPt = hPath[-1]
+                x = lastPt[0]
+                y = lastPt [1]
+                dist = sqrt( (centerX - x)**2 + (centerY - y)**2 )
+                lastPts.append( (lastPt, dist, hPath) )
+            except IndexError:
+                continue
+        lastPts.sort(key = lambda x: x[1])
+        try:
+            return lastPts[0][2]
+        except IndexError:
+            return None
 
 
     def reachablePointsFrom(self, x, y, possible = False):
