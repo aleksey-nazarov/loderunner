@@ -72,25 +72,43 @@ possibleFreeTiles = realFreeTiles + \
                       Element('OTHER_HERO_SHADOW_LEFT'),
                       Element('OTHER_HERO_SHADOW_RIGHT') ]
 
-                   
+PATH_SEARCH_TRIES_BEFORE_SUICIDE = 15                   
 
 class Decider:
     def __init__(self):
         self._gcb = None
+        self._pathNotFoundCount = 0
         pass
 
 
-    def getDecision(self, gcb: Board):
+    def getDecision(self, gcb: Board, ret=None):
+        """
+        ret - если в этот параметр передать пустой список, то в нем (списке) вернется найденный путь
+        (сделано для отладки)
+        """
         self._gcb = gcb
         heroLocation = self._gcb.get_my_position()
         hX = heroLocation.get_x()
         hY = heroLocation.get_y()
         hPath = self.getPath(hX, hY)
-        print('FOUND', hPath)
-        fromPt = hPath[0]
-        toPt = hPath[1]
-        commandList = actionToMove(*fromPt, *toPt)
-        return commandList[0]
+        #print('FOUND', hPath)
+        #if ( hPath == None ): # не удалось найти
+        #    return LoderunnerAction.DO_NOTHING
+        if ( ret != None ):
+            ret.append(hPath)
+        try:
+            fromPt = hPath[0]
+            toPt = hPath[1]
+            commandList = self.actionToMove(*fromPt, *toPt)
+            cmd = commandList[0]
+            self._pathNotFoundCount = 0
+            return cmd
+        except (TypeError, IndexError):
+            print('PATH SEARCHING ERROR')
+            self._pathNotFoundCount += 1
+            if ( self._pathNotFoundCount > PATH_SEARCH_TRIES_BEFORE_SUICIDE ):
+                return LoderunnerAction.SUICIDE
+            return LoderunnerAction.DO_NOTHING
 
 
     def getPath(self, x, y, possible = False):
@@ -105,7 +123,7 @@ class Decider:
             for hPath in hPaths:
                 lastPt = hPath[-1]
                 reachablePts = self.reachablePointsFrom(*lastPt)
-                if ( (11,23) in hPath ):
+                if ( (12, 24) in hPath ):
                     print('hPath', hPath)
                 #print('lastPt', lastPt)
                 #print('rpts', reachablePts)
@@ -123,6 +141,9 @@ class Decider:
             counter += 1
             
             hPaths = newHPaths
+
+            if ( newHPaths == [] ):
+                return None
 
 
     def reachablePointsFrom(self, x, y, possible = False):
@@ -186,7 +207,8 @@ class Decider:
              toTile in freeTiles ):
             if ( self.canHoldOn(fromX, fromY) ):
                 return LoderunnerAction.GO_DOWN
-            if ( tile in freeTiles ):
+            if ( tile in freeTiles or
+                 tile in possibleDestructibleGround ):
                 return LoderunnerAction.DO_NOTHING # falling
             
         # вправо-вниз и влево-вниз, в случае успеха возвращаются два действия, одно из которых - сверление
